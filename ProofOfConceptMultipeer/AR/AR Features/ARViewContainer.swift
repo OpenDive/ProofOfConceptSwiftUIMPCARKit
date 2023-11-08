@@ -33,7 +33,6 @@ struct ARViewContainer: UIViewRepresentable {
         if let receivedData = multipeerSession.receivedData, let peerID = multipeerSession.dataSenderPeerID {
             do {
                 if let worldMap = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARWorldMap.self, from: receivedData) {
-                    print("RECEIVER: \(worldMap)")
                     // Run the session with the received world map.
                     let configuration = ARWorldTrackingConfiguration()
                     configuration.planeDetection = .horizontal
@@ -44,6 +43,7 @@ struct ARViewContainer: UIViewRepresentable {
                         self.multipeerSession.mapProvider = peerID
                     }
                 } else if let anchor = try NSKeyedUnarchiver.unarchivedObject(ofClass: ARAnchor.self, from: receivedData) {
+                    print("RECEIVER: \(anchor)")
                     uiView.session.add(anchor: anchor)
                 } else {
                     print("unknown data recieved from \(peerID)")
@@ -64,30 +64,15 @@ struct ARViewContainer: UIViewRepresentable {
                 return
             }
 
-            // Create a cube model and material
-            let cubeMesh = MeshResource.generateBox(size: 0.1)
-            let material = SimpleMaterial(color: .blue, isMetallic: true)
-            let cube = ModelEntity(mesh: cubeMesh, materials: [material])
+            let anchor = ARAnchor(name: "testScene", transform: hitTestResult.worldTransform)
 
-            // Create an AnchorEntity corresponding to the ARAnchor
-            let anchorEntity = AnchorEntity(raycastResult: hitTestResult)
-
-            // Add the cube model to the AnchorEntity
-            anchorEntity.addChild(cube)
-
-            // Add the AnchorEntity to the ARView's scene
-            uiView.scene.addAnchor(anchorEntity)
-
-            uiView.session.getCurrentWorldMap { worldMap, error in
-                guard let map = worldMap
-                    else { print("Error: \(error!.localizedDescription)"); return }
-                guard let data = try? NSKeyedArchiver.archivedData(withRootObject: map, requiringSecureCoding: true)
-                    else { fatalError("can't encode map") }
-                self.multipeerSession.sendToAllPeers(data)
-                
-                DispatchQueue.main.async {
-                    self.arViewModel.location = nil
-                }
+            guard let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true) else {
+                fatalError("can't encode anchor")
+            }
+            self.multipeerSession.sendToAllPeers(data)
+            
+            DispatchQueue.main.async {
+                self.arViewModel.location = nil
             }
         }
         #endif
